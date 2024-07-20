@@ -3,16 +3,15 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchData } from './store/actions/dataAction';
 import { RootState } from './store/index';
 import DataTable from './components/DataTable';
-import SymbolModal from './components/SymbolModal';
 
 const App: React.FC = () => {
   const dispatch = useDispatch();
   const { data, symbol } = useSelector((state: RootState) => state.data);
 
   useEffect(() => {
-    dispatch(fetchData(symbol));
+    dispatch(fetchData());
     const interval = setInterval(() => {
-      dispatch(fetchData(symbol));
+      dispatch(fetchData());
     }, 60000); // Fetch every minute
 
     return () => clearInterval(interval);

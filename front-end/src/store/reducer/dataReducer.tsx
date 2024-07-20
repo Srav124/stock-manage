@@ -3,6 +3,7 @@ import { FETCH_DATA, GET_DATA_BY_ID } from './actionTypes';
 import { DataActionTypes } from './action';
 
 interface DataState {
+  returnData: any;
   data: Array<{ symbol: string; price: number; timestamp: string }>;
   symbol: string;
 }

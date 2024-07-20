@@ -5,6 +5,14 @@ import cron from 'node-cron'
 
 const BASE_URL = 'https://api.coingecko.com/api/v3/coins/';
 
+const desiredIds = [
+    'bitcoin',
+    'buff-doge-coin',
+    'ethereum',
+    'tether',
+    'binancecoin'
+];
+
 // Function to get all stocks
 export const getStocksFromAPI = async () => {
     try {
@@ -12,8 +20,14 @@ export const getStocksFromAPI = async () => {
         let resData ;
         if (response.status == 200) {
             let data = response.data
-            if(data !=undefined && data != null) {
-              resData =await stocks.create(data)
+            if (data && Array.isArray(data)) {
+                // Filter the data to include only the desired IDs
+                const filteredData = data.filter(item => desiredIds.includes(item.id));
+
+                if (filteredData.length > 0) {
+                    // Save the filtered data to the database
+                    resData =await stocks.create(filteredData);
+                }
             }
         }
     } catch (error: any) {
@@ -26,7 +40,7 @@ export const getAllCryptoTypes = async (req: Request, res: Response) => {
     try {
         let resData = await stocks.find({});
         if(resData.length == 0 ) {
-            let response = await getStocksFromAPI ();
+            let response = await getStocksFromAPI();
             return res.json(response)
         } else {
             return res.json(resData)
