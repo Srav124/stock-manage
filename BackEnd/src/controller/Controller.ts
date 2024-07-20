@@ -1,67 +1,101 @@
 import axios from 'axios';
-import { request, Request, response, Response } from 'express';
-import { stocks } from '../model/Model';
-import cron from 'node-cron';
-import dotenv from 'dotenv'
-dotenv.config();
+import {  Request, Response } from 'express';
+import { market, stocks } from '../model/Model';
+import cron from 'node-cron'
 
-const CMC_API_KEY = process.env.CMC_PRO_API_KEY;
-const CMC_API_URL = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/map';
-
-if (!CMC_API_KEY) {
-    console.log('CoinMarketCap API key is not defined');
-}
+const BASE_URL = 'https://api.coingecko.com/api/v3/coins/';
 
 // Function to get all stocks
-export const getStocks = async (req: Request, res: Response) => {
+export const getStocksFromAPI = async () => {
     try {
-        const response = await axios.get(CMC_API_URL, {
-            headers: {
-                'X-CMC_PRO_API_KEY': '6a4f9cea-4c43-4da9-8db8-c37eb9814257',
-            },
-        });
-        let resData = '' ;
-        if(response.status == 200) {
-            if(response.data != '') {
-                if(response?.data?.data != '') {
-                    resData = response?.data?.data
-                } else{
-                    resData = response?.data
-                }
+        const response = await axios.get(`${BASE_URL}/list`);
+        let resData ;
+        if (response.status == 200) {
+            let data = response.data
+            if(data !=undefined && data != null) {
+              resData =await stocks.create(data)
             }
         }
-    
-        return resData
-    } catch (error: any ) {
+    } catch (error: any) {
+        console.error('Error fetching stocks:', error);
+    }
+};
+
+export const getAllCryptoTypes = async (req: Request, res: Response) => {
+
+    try {
+        let resData = await stocks.find({});
+        if(resData.length == 0 ) {
+            let response = await getStocksFromAPI ();
+            return res.json(response)
+        } else {
+            return res.json(resData)
+        }
+    } catch (error: any) {
         console.error('Error fetching stocks:', error);
         res.status(500).json({ message: 'Error fetching stocks', error: error.message });
     }
 };
 
-// Function to save crypto type
-export const getAndSaveStocks = async (req: Request, res: Response): Promise<void> => {
+export const getAvailableTypes = async (req: Request, res: Response) => {
     try {
-        // Invoke getAllStocks and to save in DB
-        const data = await getStocks(req, res);
-
-        let response
-        // Perform operations with the data (e.g., save to database)
-        if(data !=undefined && data != null) {
-            response =await stocks.create(data)
+        let resData = await stocks.find({});
+        if(resData.length == 0 ) {
+            let response = await getStocksFromAPI ();
+            console.log('respomsee', response)
+            return res.json(response)
+        } else {
+            return res.json(resData)
         }
-        res.json(response)
-        console.log("response saved successfully to DB")
-        
-    } catch (error : any) {
-        console.error('Error saving crypto type:', error);
-        res.status(500).json({ message: 'Error saving crypto type', error: error.message });
+    } catch (error: any) {
+        console.error('Error fetching stocks:', error);
+        res.status(500).json({ message: 'Error fetching stocks', error: error.message });
     }
 };
 
-// Schedule the getAndSaveStocks function to run every 5 minutes
-// cron.schedule('*/5 * * * *', () => {
-//     console.log('Running getAndSaveStocks every 5 minutes');
-//     getAndSaveStocks({} as Request, {} as Response);  // Passing empty objects as placeholders
-// });
+// Function to get all stock based on market value
+export const stockUpdate = async (cryptoIds: Array<String>) => {
+    try {
+        // const type = currency_type != '' ? currency_type : 'USD'
+        const response = await axios.get(`https://api.coingecko.com/api/v3/coins/markets`, {
+            params: {
+              vs_currency: 'usd', // The currency in which the data should be returned (e.g., 'usd')
+              ids: cryptoIds.join(','), // Comma-separated list of cryptocurrency IDs
+            }
+          });
+        if (response.status == 200) {
+            let data = response.data
+            if(data !=undefined && data != null) {
+              await market.create(data)
+              console.log("Data added successfully")
+            }
+        }
+        
+    } catch (error : any) {
+        console.error('Error fetching crypto data:', error);
+    }
+};
 
-// console.log('Scheduler started, getAndSaveStocks will be called every 5 minutes.');
+export const getStockUpdateById =  async (req: Request, res: Response) => {
+    const id =req.params.id;
+    console.log("sysbmpp", id)
+    try{
+        const data = await market.find({id: id}).sort({ timestamp: -1 }).limit(20)
+        if(data.length > 0) {
+            return res.status(200).json(data);
+        }else{
+            return res.status(400).json({ message: 'No data available' });
+        }
+    }catch (error: any) {
+        console.error('Error fetching stocks:', error);
+        res.status(500).json({ message: 'Error fetching stocks', error: error.message });
+    }
+    
+}
+// Schedule the getAndSaveStocks function to run every 5 minutes
+cron.schedule('*/5 * * * *', () => {
+    console.log('Running getAndSaveStocks every 5 minutes');
+    stockUpdate(['bitcoin','buff-doge-coin','ethereum','tether','binancecoin'])
+});
+
+console.log('Scheduler started, getAndSaveStocks will be called every 5 minutes.');
